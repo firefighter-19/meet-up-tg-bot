@@ -6,14 +6,7 @@ import { startCommand } from "./core/commands/start";
 import { Bot } from "grammy";
 import { handleCallBackQueryData } from "./core/handlers/common.handler";
 import { BotModel } from "./models/bot.model";
-import { LanguageModel } from "./models/language.model";
-import {
-  createUserCommandMenu,
-  getUser,
-  getUserMenu,
-} from "./services/user.service";
-
-import { knownUserCommands } from "./core/commands/commands-list";
+import { getUser } from "./services/user.service";
 
 config({ path: ["../environment.env"], ignore: ["MISSING_ENV_FILE"] });
 
@@ -52,19 +45,23 @@ function startBot({ bot, database }: StartBotVariables): void {
     const isKnownUser = await getUser(ctx.chatId?.toString(), database);
 
     if (isKnownUser) {
-      if (JSON.stringify(knownUserCommands) !== JSON.stringify(commands)) {
-        await ctx.api.setMyCommands(knownUserCommands);
-      }
+      // const currentUserStep = savedUser
     }
 
-    const user_panel = createUserCommandMenu(commands);
+    // if (isKnownUser) {
+    //   if (JSON.stringify(knownUserCommands) !== JSON.stringify(commands)) {
+    //     await ctx.api.setMyCommands(knownUserCommands);
+    //   }
+    // }
 
-    await ctx.reply(
-      getUserMenu(isKnownUser?.language || LanguageModel.UNKNOWN),
-      {
-        reply_markup: user_panel,
-      },
-    );
+    // const user_panel = createUserCommandMenu(commands);
+
+    // await ctx.reply(
+    //   getUserMenu(isKnownUser?.language || LanguageModel.UNKNOWN),
+    //   {
+    //     reply_markup: user_panel,
+    //   },
+    // );
   });
 
   bot.catch(({ ctx }) => {

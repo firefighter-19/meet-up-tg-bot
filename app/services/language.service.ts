@@ -46,38 +46,20 @@ export function createLanguageMenu(
 
 export async function handleLanguageAnswer({
   ctx,
-  user
+  value,
 }: CallbackVariables): Promise<void | Error> {
-  if (ctx.from?.username) {
+  if (ctx.from?.username && ctx?.chatId) {
     const { username } = ctx.from;
-    const msgs: Record<string, string> = {
-      hebrew: getTextForHebrew(username),
-      english: getTextForEnglish(username),
-      russian: getTextForRussian(username),
+    const msgs: Record<string, () => string> = {
+      hebrew: () => getTextForHebrew(username),
+      english: () => getTextForEnglish(username),
+      russian: () => getTextForRussian(username),
     };
-    if (user. && ctx?.chatId) {
-      await ctx
-        .editMessageText(msgs[value])
-        // .then(async () => {
-        //   await setUser(ctx.chatId!.toString(), user, db);
-        //   const nameMsgs: Record<string, string> = {
-        //     hebrew: getResultTextForHebrew(),
-        //     english: getResultTextForEnglish(),
-        //     russian: getResultTextForRussian(),
-        //   };
-        //   await ctx.reply(nameMsgs[value]);
-        // })
-        // .then(async () => {
-        //   const commands = await ctx.api.getMyCommands();
-        //   const user_panel = createUserCommandMenu(commands);
-        //   await ctx.reply(getUserMenu(value), {
-        //     reply_markup: user_panel,
-        //   });
-        // })
-        .catch(() => {
-          return new Error("Something went wrong trying to modify result");
-        });
-    }
+    await ctx.editMessageText(msgs[value]()).catch(() => {
+      return new Error("Something went wrong trying to modify result");
+    });
+  } else {
+    return Promise.reject("Something went wrong trying to modify result");
   }
 }
 

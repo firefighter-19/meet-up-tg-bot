@@ -2,10 +2,6 @@ import { BotCommand } from "@grammyjs/types";
 
 export const knownUserCommands: BotCommand[] = [
   {
-    command: "/main",
-    description: "Order product",
-  },
-  {
     command: "/help",
     description: "Get help",
   },

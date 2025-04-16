@@ -1,5 +1,6 @@
 import { Message } from "@grammyjs/types";
 import { Context } from "grammy";
+import { CallbackVariables } from "../../dto/callback-query";
 import { CallBackData, Codes } from "../../models/callback-query-data.model";
 import { InitialStep } from "../../models/get-initial-settings.model";
 import { LanguageModel } from "../../models/language.model";
@@ -9,6 +10,7 @@ import {
   getMessageText,
   handleLanguageAnswer,
 } from "../../services/language.service";
+import { setUser } from "../../services/user.service";
 import { getHelp } from "../commands/help";
 
 export async function handleCallBackQueryData(
@@ -17,10 +19,11 @@ export async function handleCallBackQueryData(
   user: UserModel,
   db: any,
 ): Promise<void> {
-  const obj: Record<string, () => Promise<void | Error>> = {
+  const obj: Record<string, () => Promise<Message.TextMessage>> = {
     [Codes.language_panel]: () =>
-      handleLanguageAnswer({
+      handleUserLanguageAnswer({
         ctx,
+        db,
         user: {
           createdAt: user.createdAt,
           currentUserStep: InitialStep.ENTER_NAME,
@@ -33,7 +36,6 @@ export async function handleCallBackQueryData(
           isAdmin: false,
           isPartner: false,
         },
-        db,
         value: data.value as LanguageModel,
       }),
     [Codes.help]: () => getHelp(ctx, db),
@@ -42,7 +44,7 @@ export async function handleCallBackQueryData(
   if (obj.hasOwnProperty(data.code)) {
     await obj[data.code]();
   } else {
-    ctx.reply("Command is not handled");
+    await ctx.reply("Command is not handled");
   }
 }
 
@@ -51,11 +53,11 @@ export async function defineUserStep(
   user: UserModel,
 ): Promise<unknown> {
   const steps: Record<string, any> = {
-    [InitialStep.LANGUAGE_CHOOSE]: handleLanguagePanel(ctx, user),
-    [InitialStep.ENTER_NAME]: handleEnterName(ctx, user),
-    [InitialStep.LINKED_IN]: languagePanelHandler(ctx, user),
+    [InitialStep.LANGUAGE_CHOOSE]: () => handleLanguagePanel(ctx, user),
+    [InitialStep.ENTER_NAME]: () => handleEnterName(ctx, user.language),
+    [InitialStep.LINKED_IN]: () => handleLinkedIn(ctx, user.language),
   };
-  return await steps[user.currentUserStep];
+  return await steps[user.currentUserStep]();
 }
 
 export async function handleLanguagePanel(
@@ -68,49 +70,68 @@ export async function handleLanguagePanel(
   });
 }
 
-async function handleUserLanguageAnswer(
-  data: CallBackData,
-  ctx: Context,
-  user: UserModel,
-  db: any,
-): Promise<Message.TextMessage> {
-  await handleLanguageAnswer({
+async function handleUserLanguageAnswer({
+  ctx,
+  user,
+  db,
+  value,
+}: CallbackVariables): Promise<Message.TextMessage> {
+  return await handleLanguageAnswer({
     ctx,
-    user: {
-      createdAt: user.createdAt,
-      currentUserStep: InitialStep.ENTER_NAME,
-      id: user.id,
-      language: data.value as LanguageModel,
-      name: user.name,
-      username: user.username,
-      updateAt: new Date(),
-      deletedAt: null,
-      isAdmin: false,
-      isPartner: false,
-    },
+    user,
     db,
-    value: data.value as LanguageModel,
-  }).then(() => {});
+    value,
+  })
+    .then(async () => {
+      const savedUser = await setUser(ctx.chatId!.toString(), user, db);
+      return await handleEnterName(ctx, savedUser.language);
+    })
+    .catch(async (err) => {
+      console.log("err ===========>: ", err);
+      return await ctx.reply("");
+    });
 }
 
 async function handleEnterName(
   ctx: Context,
-  user: UserModel,
+  value: LanguageModel,
 ): Promise<Message.TextMessage> {
-  const nameMsgs: Record<string, string> = {
-    hebrew: getResultTextForHebrew(),
-    english: getResultTextForEnglish(),
-    russian: getResultTextForRussian(),
+  const nameMsgs: Record<string, () => string> = {
+    hebrew: () => getResultTextForHebrew(),
+    english: () => getResultTextForEnglish(),
+    russian: () => getResultTextForRussian(),
   };
-  return await ctx.reply(nameMsgs[user.language]);
+  return await ctx.reply(nameMsgs[value]());
 }
 
 export function getResultTextForHebrew(): string {
-  return `Please enter your full name in the next format "SURNAME, NAME"`;
+  return `אנא הזן את שמך המלא בפורמט הבא "SURNAME, NAME"`;
 }
 export function getResultTextForEnglish(): string {
   return `Please enter your full name in the next format "SURNAME, NAME"`;
 }
 export function getResultTextForRussian(): string {
   return `Пожалуйста, введите своё полное имя одной строчкой в формате "ФАМИЛИЯ, ИМЯ"`;
+}
+
+async function handleLinkedIn(
+  ctx: Context,
+  value: LanguageModel,
+): Promise<Message.TextMessage> {
+  const nameMsgs: Record<string, () => string> = {
+    hebrew: () => getLinkedInHebrew(),
+    english: () => getLinkedInEnglish(),
+    russian: () => getLinkedInRussian(),
+  };
+  return await ctx.reply(nameMsgs[value]());
+}
+
+export function getLinkedInHebrew(): string {
+  return `אנא ספק את הקישור לפרופיל הלינקדאין שלך`;
+}
+export function getLinkedInEnglish(): string {
+  return `Please provide your LinkedIn profile link`;
+}
+export function getLinkedInRussian(): string {
+  return `Пожалуйста, отправьте ссылку на ваш профиль LinkedIn`;
 }
